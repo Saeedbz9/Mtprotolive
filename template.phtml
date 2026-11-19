@@ -1,5 +1,5 @@
 <?php
-// template.phtml — MTProtoLive page (fresh, lively light design)
+// template.phtml — MTProtoLive page (lively light/dark + liquid glass)
 // Variables provided by extract_proxies.php:
 //   $proxies (server, port, secret, type, source, status, latency),
 //   $onlineCount, $totalCount, $scanTimestamp
@@ -38,24 +38,68 @@ function type_fa(string $type): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MTProtoLive | پروکسی‌های MTProto زنده</title>
 <meta name="description" content="پروکسی‌های MTProto تلگرام با بررسی زنده و مرتب‌سازی بر اساس پینگ">
+<script>
+/* Theme before paint: saved choice, else system preference */
+try {
+  var _t = localStorage.getItem('mtprotolive-theme');
+  if (!_t) _t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', _t);
+} catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f3f5fb;
+    --text: #1e2433;
+    --muted: #64748b;
+    --glass: rgba(255,255,255,.55);
+    --glass-strong: rgba(255,255,255,.72);
+    --glass-border: rgba(255,255,255,.65);
+    --glass-hi: rgba(255,255,255,.75);
+    --input: rgba(255,255,255,.5);
+    --shadow: rgba(30,41,59,.10);
+    --shadow-lg: rgba(30,41,59,.16);
+    --blob-o: .55;
+  }
+  html[data-theme="dark"] {
+    --bg: #070b16;
+    --text: #eef1f8;
+    --muted: #93a0b8;
+    --glass: rgba(255,255,255,.06);
+    --glass-strong: rgba(255,255,255,.09);
+    --glass-border: rgba(255,255,255,.14);
+    --glass-hi: rgba(255,255,255,.16);
+    --input: rgba(255,255,255,.07);
+    --shadow: rgba(0,0,0,.45);
+    --shadow-lg: rgba(0,0,0,.6);
+    --blob-o: .35;
+  }
   body {
     font-family: 'Vazirmatn', system-ui, sans-serif;
-    color: #1e2433;
+    color: var(--text);
     min-height: 100vh;
-    background: #f3f5fb;
+    background: var(--bg);
     overflow-x: hidden;
+    transition: background .35s, color .35s;
   }
   /* Floating colour blobs */
-  .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: .55; z-index: 0; pointer-events: none; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: var(--blob-o); z-index: 0; pointer-events: none; transition: opacity .35s; }
   .blob.b1 { width: 420px; height: 420px; background: #c7d2fe; top: -120px; right: -80px; animation: drift 16s ease-in-out infinite alternate; }
   .blob.b2 { width: 360px; height: 360px; background: #a5f3fc; bottom: -100px; left: -60px; animation: drift 20s ease-in-out infinite alternate-reverse; }
   .blob.b3 { width: 280px; height: 280px; background: #fbcfe8; top: 38%; left: 32%; animation: drift 24s ease-in-out infinite alternate; }
   @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.12); } }
+
+  /* Liquid glass base */
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 8px 24px var(--shadow);
+  }
 
   .wrap { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 30px 16px 60px; }
 
@@ -63,10 +107,9 @@ function type_fa(string $type): string {
   @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
   .live-pill {
     display: inline-flex; align-items: center; gap: 7px;
-    background: #fff; border: 1px solid #e5e7f0; border-radius: 999px;
-    padding: 6px 14px; font-size: 13px; font-weight: 700; color: #059669;
-    box-shadow: 0 2px 10px rgba(30,41,59,.06);
+    border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: #059669;
   }
+  html[data-theme="dark"] .live-pill { color: #6ee7b7; }
   .live-pill i { width: 9px; height: 9px; border-radius: 50%; background: #10b981; animation: pulse 1.6s infinite; }
   @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.45); } 70% { box-shadow: 0 0 0 9px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
   h1 {
@@ -77,108 +120,130 @@ function type_fa(string $type): string {
     animation: slideGrad 7s linear infinite;
   }
   @keyframes slideGrad { to { background-position: 250% 0; } }
-  header p { color: #64748b; margin-top: 8px; font-size: 15px; }
+  header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
 
   .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
-  .stat {
-    background: #fff; border: 1px solid #e8eaf2; border-radius: 20px;
-    padding: 12px 22px; text-align: center; min-width: 110px;
-    box-shadow: 0 4px 16px rgba(30,41,59,.07);
-  }
-  .stat b { display: block; font-size: 26px; font-weight: 900; color: #1e2433; }
+  .stat { border-radius: 20px; padding: 12px 22px; text-align: center; min-width: 110px; }
+  .stat b { display: block; font-size: 26px; font-weight: 900; }
   .stat b.green { color: #059669; }
-  .stat span { font-size: 12.5px; color: #64748b; }
-  .updated { text-align: center; color: #64748b; font-size: 13px; margin-top: 14px; }
+  html[data-theme="dark"] .stat b.green { color: #34d399; }
+  .stat span { font-size: 12.5px; color: var(--muted); }
+  .updated { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
 
   .toolbar {
-    position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 10px; z-index: 10;
     display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin: 24px 0 18px; padding: 12px;
-    background: rgba(255,255,255,.82); backdrop-filter: blur(12px);
-    border: 1px solid #e8eaf2; border-radius: 18px;
-    box-shadow: 0 6px 20px rgba(30,41,59,.08);
+    margin: 24px 0 18px; padding: 12px; border-radius: 22px;
   }
   .search {
-    flex: 1 1 200px; background: #f1f3f9; border: 1.5px solid transparent;
-    border-radius: 13px; padding: 11px 14px; color: #1e2433;
+    flex: 1 1 200px; background: var(--input);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--glass-border); border-radius: 16px;
+    padding: 11px 14px; color: var(--text);
     font-family: inherit; font-size: 14px; outline: none; transition: .15s;
+    box-shadow: inset 0 1px 0 var(--glass-hi);
   }
-  .search:focus { background: #fff; border-color: #8b5cf6; }
-  .search::placeholder { color: #94a3b8; }
+  .search:focus { border-color: #8b5cf6; background: var(--glass-strong); }
+  .search::placeholder { color: var(--muted); }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
-    background: #f1f3f9; border: 1.5px solid transparent; color: #475569;
-    border-radius: 999px; padding: 8px 14px; font-family: inherit; font-size: 13px;
-    cursor: pointer; transition: .15s; font-weight: 500;
+    background: var(--input);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--glass-border); color: var(--muted);
+    border-radius: 999px; padding: 9px 15px; font-family: inherit; font-size: 13px;
+    cursor: pointer; transition: .18s; font-weight: 500;
+    box-shadow: inset 0 1px 0 var(--glass-hi);
   }
-  .chip:hover { background: #e7eaf5; }
+  .chip:hover { color: var(--text); transform: translateY(-1px); }
   .chip.active {
-    background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; font-weight: 700;
-    box-shadow: 0 4px 12px rgba(124,58,237,.35);
+    background: linear-gradient(90deg, rgba(124,58,237,.85), rgba(219,39,119,.85));
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    color: #fff; font-weight: 700; border-color: rgba(255,255,255,.4);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 4px 14px rgba(124,58,237,.35);
   }
-  .btn-refresh {
+  .btn-glass {
     display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
-    background: linear-gradient(90deg, #0891b2, #2563eb); color: #fff;
     border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 800;
-    box-shadow: 0 4px 14px rgba(8,145,178,.35); transition: .15s; white-space: nowrap;
+    font-family: inherit; cursor: pointer; white-space: nowrap; transition: .18s;
+    color: #fff; border: 1px solid rgba(255,255,255,.45);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -8px 16px rgba(255,255,255,.12), 0 6px 18px var(--shadow);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8); backdrop-filter: blur(16px) saturate(1.8);
   }
-  .btn-refresh:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn-glass:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .btn-refresh { background: linear-gradient(135deg, rgba(8,145,178,.85), rgba(37,99,235,.85)); }
   .btn-refresh .ic { display: inline-block; transition: transform .5s; font-size: 16px; }
   .btn-refresh:hover .ic { transform: rotate(180deg); }
+  .btn-theme { background: linear-gradient(135deg, rgba(124,58,237,.85), rgba(219,39,119,.85)); }
+  .btn-theme .ic { font-size: 15px; }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .card {
-    position: relative; background: #fff; border: 1px solid #e8eaf2; border-radius: 20px;
+    position: relative; border-radius: 22px;
     padding: 18px 16px 16px; overflow: hidden;
-    box-shadow: 0 4px 16px rgba(30,41,59,.06);
     transition: transform .18s, box-shadow .18s;
     animation: rise .45s ease both; animation-delay: calc(var(--i, 0) * 28ms);
   }
   @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  .card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(30,41,59,.13); }
+  .card:hover { transform: translateY(-4px); box-shadow: inset 0 1px 0 var(--glass-hi), 0 14px 30px var(--shadow-lg); }
   .card::before {
     content: ""; position: absolute; top: 0; right: 0; left: 0; height: 4px;
     background: linear-gradient(90deg, #10b981, #34d399);
   }
-  .card.off { opacity: .62; }
+  .card.off { opacity: .6; }
   .card.off::before { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
-  .server { font-family: ui-monospace, monospace; font-size: 14.5px; direction: ltr; text-align: right; word-break: break-all; font-weight: 700; color: #1e2433; }
-  .port { color: #64748b; font-size: 12.5px; margin-top: 4px; }
+  .server { font-family: ui-monospace, monospace; font-size: 14.5px; direction: ltr; text-align: right; word-break: break-all; font-weight: 700; }
+  .port { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
   .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
   .badge { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
-  .lat-good { background: #d1fae5; color: #047857; }
-  .lat-mid  { background: #fef3c7; color: #b45309; }
-  .lat-slow { background: #ffedd5; color: #c2410c; }
-  .lat-off  { background: #f1f5f9; color: #64748b; }
-  .type-tls    { background: #e0f2fe; color: #0369a1; }
-  .type-secure { background: #ede9fe; color: #6d28d9; }
-  .type-std    { background: #f1f5f9; color: #64748b; }
+  .lat-good { background: rgba(16,185,129,.16); color: #047857; }
+  .lat-mid  { background: rgba(245,158,11,.16); color: #b45309; }
+  .lat-slow { background: rgba(249,115,22,.16); color: #c2410c; }
+  .lat-off  { background: rgba(100,116,139,.16); color: var(--muted); }
+  html[data-theme="dark"] .lat-good { color: #6ee7b7; }
+  html[data-theme="dark"] .lat-mid { color: #fcd34d; }
+  html[data-theme="dark"] .lat-slow { color: #fdba74; }
+  .type-tls    { background: rgba(14,165,233,.14); color: #0369a1; }
+  .type-secure { background: rgba(139,92,246,.14); color: #6d28d9; }
+  .type-std    { background: rgba(100,116,139,.14); color: var(--muted); }
+  html[data-theme="dark"] .type-tls { color: #7dd3fc; }
+  html[data-theme="dark"] .type-secure { color: #c4b5fd; }
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 12px; }
   .status i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .status.on { color: #059669; } .status.on i { background: #10b981; animation: pulse 1.6s infinite; }
-  .status.off { color: #94a3b8; } .status.off i { background: #cbd5e1; }
-  .source { color: #64748b; font-size: 12px; margin-top: 6px; }
+  html[data-theme="dark"] .status.on { color: #34d399; }
+  .status.off { color: var(--muted); } .status.off i { background: #cbd5e1; }
+  .source { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .source b { color: #7c3aed; font-weight: 700; }
+  html[data-theme="dark"] .source b { color: #a78bfa; }
   .actions { display: flex; gap: 8px; margin-top: 14px; }
   .btn {
     flex: 1; text-align: center; text-decoration: none; font-family: inherit; cursor: pointer;
-    border-radius: 13px; padding: 11px 8px; font-size: 13.5px; font-weight: 700; border: none; transition: .15s;
+    border-radius: 16px; padding: 11px 8px; font-size: 13.5px; font-weight: 700; border: none; transition: .15s;
   }
-  .btn-connect { background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,.3); }
+  .btn-connect {
+    background: linear-gradient(135deg, rgba(124,58,237,.9), rgba(219,39,119,.9)); color: #fff;
+    border: 1px solid rgba(255,255,255,.4);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 4px 14px rgba(124,58,237,.3);
+  }
   .btn-connect:hover { filter: brightness(1.1); }
-  .btn-copy { background: #f1f3f9; color: #1e2433; }
-  .btn-copy:hover { background: #e2e8f0; }
+  .btn-copy {
+    background: var(--input); color: var(--text);
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .btn-copy:hover { background: var(--glass-strong); }
   .more-wrap { text-align: center; margin-top: 28px; }
-  .counter { color: #64748b; font-size: 13.5px; margin-bottom: 12px; }
+  .counter { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
   .btn-more {
-    background: linear-gradient(90deg, #7c3aed, #0891b2); color: #fff; border: none;
+    background: linear-gradient(135deg, rgba(124,58,237,.9), rgba(8,145,178,.9)); color: #fff; border: 1px solid rgba(255,255,255,.4);
     font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
     border-radius: 999px; padding: 13px 36px; transition: .15s;
-    box-shadow: 0 6px 18px rgba(124,58,237,.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 18px rgba(124,58,237,.35);
   }
   .btn-more:hover { transform: translateY(-1px); filter: brightness(1.07); }
   .btn-more:disabled { opacity: .4; cursor: default; }
-  .empty { text-align: center; color: #64748b; padding: 40px 0; font-size: 15px; display: none; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 15px; display: none; }
   @media (max-width: 560px) {
     h1 { font-size: 32px; }
     .grid { grid-template-columns: 1fr; }
@@ -190,18 +255,18 @@ function type_fa(string $type): string {
 <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
 <div class="wrap">
   <header>
-    <div class="live-pill"><i></i> زنده — در حال پایش</div>
+    <div class="live-pill glass"><i></i> زنده — در حال پایش</div>
     <h1>MTProtoLive</h1>
     <p>پروکسی‌های MTProto تلگرام — با بررسی زنده، مرتب‌شده بر اساس پینگ</p>
     <div class="stats">
-      <div class="stat"><b class="green"><?= fa_digits($onlineCount) ?></b><span>آنلاین</span></div>
-      <div class="stat"><b><?= fa_digits($totalCount) ?></b><span>کل پروکسی‌ها</span></div>
-      <div class="stat"><b><?= $totalCount > 0 ? fa_digits(round($onlineCount / $totalCount * 100)) . '٪' : '—' ?></b><span>سالم</span></div>
+      <div class="stat glass"><b class="green"><?= fa_digits($onlineCount) ?></b><span>آنلاین</span></div>
+      <div class="stat glass"><b><?= fa_digits($totalCount) ?></b><span>کل پروکسی‌ها</span></div>
+      <div class="stat glass"><b><?= $totalCount > 0 ? fa_digits(round($onlineCount / $totalCount * 100)) . '٪' : '—' ?></b><span>سالم</span></div>
     </div>
     <div class="updated">آخرین بررسی: <span id="updated" data-ts="<?= (int)$scanTimestamp ?>">…</span></div>
   </header>
 
-  <div class="toolbar">
+  <div class="toolbar glass">
     <input class="search" id="search" type="search" placeholder="جستجو در سرور… (مثال: 149.154)">
     <div class="chips" id="statusChips">
       <button class="chip active" data-status="all">همه</button>
@@ -214,7 +279,8 @@ function type_fa(string $type): string {
       <button class="chip" data-type="MTProto Secure">Secure</button>
       <button class="chip" data-type="MTProto">معمولی</button>
     </div>
-    <a class="btn-refresh" href="https://github.com/Saeedbz9/MTProtoLive/actions/workflows/extract_proxies.yml" target="_blank" rel="noopener"><span class="ic">↻</span> بررسی مجدد</a>
+    <button class="btn-glass btn-theme" id="themeBtn" type="button"><span class="ic" id="themeIcon">🌙</span><span id="themeLabel">دارک</span></button>
+    <a class="btn-glass btn-refresh" href="https://github.com/Saeedbz9/MTProtoLive/actions/workflows/extract_proxies.yml" target="_blank" rel="noopener"><span class="ic">↻</span> بررسی مجدد</a>
   </div>
 
   <div class="grid" id="grid">
@@ -222,7 +288,7 @@ function type_fa(string $type): string {
       $tg = 'tg://proxy?server=' . rawurlencode($p['server']) . '&port=' . (int)$p['port'] . '&secret=' . rawurlencode($p['secret']);
       $online = ($p['status'] === 'Online');
     ?>
-    <article class="card<?= $online ? '' : ' off' ?>" style="--i:<?= $i++ ?>"
+    <article class="card glass<?= $online ? '' : ' off' ?>" style="--i:<?= $i++ ?>"
       data-status="<?= $online ? 'Online' : 'Offline' ?>"
       data-type="<?= htmlspecialchars($p['type']) ?>"
       data-server="<?= htmlspecialchars(strtolower($p['server'])) ?>">
@@ -264,6 +330,23 @@ function type_fa(string $type): string {
   function fa(n) {
     return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; });
   }
+
+  /* Dark / light toggle (saved per visitor) */
+  var themeBtn = document.getElementById('themeBtn');
+  var themeIcon = document.getElementById('themeIcon');
+  var themeLabel = document.getElementById('themeLabel');
+  function paintTheme() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    themeIcon.textContent = dark ? '☀️' : '🌙';
+    themeLabel.textContent = dark ? 'لایت' : 'دارک';
+  }
+  themeBtn.addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mtprotolive-theme', next); } catch (e) {}
+    paintTheme();
+  });
+  paintTheme();
 
   function visible() {
     var q = search.value.trim().toLowerCase();
