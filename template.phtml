@@ -30,6 +30,27 @@ function type_fa(string $type): string {
     if ($type === 'MTProto Secure') return 'Secure';
     return 'معمولی';
 }
+
+function utf8_chr(int $cp): string {
+    // 4-byte UTF-8 encoding, no mbstring needed
+    return chr(0xF0 | ($cp >> 18))
+        . chr(0x80 | (($cp >> 12) & 0x3F))
+        . chr(0x80 | (($cp >> 6) & 0x3F))
+        . chr(0x80 | ($cp & 0x3F));
+}
+
+function flag_emoji(?string $code): string {
+    $code = strtoupper((string)$code);
+    if (strlen($code) !== 2 || !ctype_alpha($code)) return '';
+    return utf8_chr(0x1F1E6 + ord($code[0]) - 65)
+        . utf8_chr(0x1F1E6 + ord($code[1]) - 65);
+}
+
+// Fastest online proxy (list is already sorted online-first by latency)
+$fastest = null;
+foreach ($proxies as $p) {
+    if (($p['status'] ?? '') === 'Online') { $fastest = $p; break; }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -167,6 +188,20 @@ try {
   html[data-theme="dark"] .stat b.green { color: #34d399; }
   .stat span { font-size: 12.5px; color: var(--muted); }
   .updated { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .next-scan { text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .next-scan b { color: var(--text); font-weight: 800; }
+
+  .fastest {
+    position: relative; border-radius: 22px; padding: 18px 18px 16px; margin: 22px 0 4px; overflow: hidden;
+  }
+  .fastest::before {
+    content: ""; position: absolute; top: 0; right: 0; left: 0; height: 5px;
+    background: linear-gradient(90deg, #7c3aed, #db2777, #0891b2, #7c3aed);
+    background-size: 200% 100%; animation: slideGrad 5s linear infinite;
+  }
+  .fastest-label { font-size: 13.5px; font-weight: 800; color: #db2777; display: flex; align-items: center; gap: 6px; }
+  html[data-theme="dark"] .fastest-label { color: #f472b6; }
+  .fastest .server { font-size: 17px; margin-top: 10px; }
 
   .toolbar {
     position: sticky; top: 10px; z-index: 10;
@@ -240,6 +275,7 @@ try {
   html[data-theme="dark"] .lat-mid { color: #fcd34d; }
   html[data-theme="dark"] .lat-slow { color: #fdba74; }
   .type-tls    { background: rgba(14,165,233,.14); color: #0369a1; }
+  .country-badge { background: rgba(100,116,139,.14); color: var(--text); }
   .type-secure { background: rgba(139,92,246,.14); color: #6d28d9; }
   .type-std    { background: rgba(100,116,139,.14); color: var(--muted); }
   html[data-theme="dark"] .type-tls { color: #7dd3fc; }
@@ -312,7 +348,31 @@ try {
       <div class="stat glass"><b data-num="<?= $totalCount > 0 ? (int)round($onlineCount / $totalCount * 100) : 0 ?>" data-pct="1"><?= $totalCount > 0 ? fa_digits(round($onlineCount / $totalCount * 100)) . '٪' : '—' ?></b><span data-i18n="healthy">سالم</span></div>
     </div>
     <div class="updated"><span data-i18n="updated">آخرین بررسی:</span> <span id="updated" data-ts="<?= (int)$scanTimestamp ?>">…</span></div>
+    <div class="next-scan"><span data-i18n="next_scan">اسکن بعدی تا</span> <b id="nextScan">…</b></div>
   </header>
+
+  <?php if ($fastest !== null):
+    $ftg = 'tg://proxy?server=' . rawurlencode($fastest['server']) . '&port=' . (int)$fastest['port'] . '&secret=' . rawurlencode($fastest['secret']);
+  ?>
+  <div class="fastest glass">
+    <div class="fastest-label">⚡ <span data-i18n="fastest">سریع‌ترین پروکسی</span></div>
+    <div class="server"><?= htmlspecialchars($fastest['server']) ?></div>
+    <div class="port"><span data-i18n="port">پورت</span> <span data-num="<?= (int)$fastest['port'] ?>"><?= fa_digits($fastest['port']) ?></span></div>
+    <div class="badges">
+      <span class="badge <?= latency_class($fastest['latency'] ?? null) ?>">⚡ <span data-num="<?= (int)$fastest['latency'] ?>"><?= fa_digits($fastest['latency']) ?></span> ms</span>
+      <span class="badge <?= type_class($fastest['type']) ?> type-badge" data-type="<?= htmlspecialchars($fastest['type']) ?>"><?= type_fa($fastest['type']) ?></span>
+      <?php if (!empty($fastest['country_code'])): ?>
+      <span class="badge country-badge"><?= flag_emoji($fastest['country_code']) ?> <?= htmlspecialchars($fastest['country'] ?? '') ?></span>
+      <?php endif; ?>
+    </div>
+    <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+    <div class="source"><span data-i18n="source">منبع</span>: <b>@<?= htmlspecialchars($fastest['source'] ?? '—') ?></b></div>
+    <div class="actions">
+      <a class="btn btn-connect" href="<?= htmlspecialchars($ftg) ?>" data-i18n="connect">اتصال در تلگرام</a>
+      <button class="btn btn-copy" data-copy="<?= htmlspecialchars($ftg) ?>" data-i18n="copy">کپی لینک</button>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <div class="toolbar glass">
     <input class="search" id="search" type="search" data-i18n-ph="search_ph" placeholder="جستجو در سرور… (مثال: 149.154)">
@@ -338,6 +398,7 @@ try {
     <article class="card glass<?= $online ? '' : ' off' ?>" style="--i:<?= $i++ ?>"
       data-status="<?= $online ? 'Online' : 'Offline' ?>"
       data-type="<?= htmlspecialchars($p['type']) ?>"
+      data-country="<?= htmlspecialchars(strtolower(($p['country'] ?? '') . ' ' . ($p['country_code'] ?? ''))) ?>"
       data-server="<?= htmlspecialchars(strtolower($p['server'])) ?>">
       <div class="server"><?= htmlspecialchars($p['server']) ?></div>
       <div class="port"><span data-i18n="port">پورت</span> <span data-num="<?= (int)$p['port'] ?>"><?= fa_digits($p['port']) ?></span></div>
@@ -348,6 +409,9 @@ try {
         <span class="badge lat-off" data-i18n="no_response">بدون پاسخ</span>
         <?php endif; ?>
         <span class="badge <?= type_class($p['type']) ?> type-badge" data-type="<?= htmlspecialchars($p['type']) ?>"><?= type_fa($p['type']) ?></span>
+        <?php if (!empty($p['country_code'])): ?>
+        <span class="badge country-badge"><?= flag_emoji($p['country_code']) ?> <?= htmlspecialchars($p['country'] ?? '') ?></span>
+        <?php endif; ?>
       </div>
       <div class="status <?= $online ? 'on' : 'off' ?>"><i></i><span class="status-txt" data-status="<?= $online ? 'Online' : 'Offline' ?>"><?= $online ? 'آنلاین' : 'آفلاین' ?></span></div>
       <div class="source"><span data-i18n="source">منبع</span>: <b>@<?= htmlspecialchars($p['source'] ?? '—') ?></b></div>
@@ -385,6 +449,8 @@ try {
       live: 'زنده — در حال پایش',
       online: 'آنلاین', total: 'کل پروکسی‌ها', healthy: 'سالم',
       updated: 'آخرین بررسی:',
+      fastest: 'سریع‌ترین پروکسی',
+      next_scan: 'اسکن بعدی تا', next_scan_na: 'به‌زودی',
       search_ph: 'جستجو در سرور… (مثال: 149.154)',
       all: 'همه', offline: 'آفلاین', all_types: 'همه نوع‌ها', standard: 'معمولی',
       refresh: 'بررسی مجدد',
@@ -403,6 +469,8 @@ try {
       live: 'Live — monitoring',
       online: 'Online', total: 'Total proxies', healthy: 'Healthy',
       updated: 'Last check:',
+      fastest: 'Fastest proxy',
+      next_scan: 'Next scan in', next_scan_na: 'soon',
       search_ph: 'Search server… (e.g. 149.154)',
       all: 'All', offline: 'Offline', all_types: 'All types', standard: 'Standard',
       refresh: 'Re-check',
@@ -421,6 +489,8 @@ try {
       live: 'مباشر — قيد المراقبة',
       online: 'متصل', total: 'إجمالي البروكسيات', healthy: 'سليمة',
       updated: 'آخر فحص:',
+      fastest: 'أسرع بروكسي',
+      next_scan: 'الفحص التالي خلال', next_scan_na: 'قريباً',
       search_ph: 'ابحث في الخادم… (مثال: 149.154)',
       all: 'الكل', offline: 'غير متصل', all_types: 'كل الأنواع', standard: 'عادي',
       refresh: 'إعادة الفحص',
@@ -502,7 +572,7 @@ try {
     return cards.filter(function (c) {
       if (statusFilter !== 'all' && c.dataset.status !== statusFilter) return false;
       if (typeFilter !== 'all' && c.dataset.type !== typeFilter) return false;
-      if (q && c.dataset.server.indexOf(q) === -1) return false;
+      if (q && c.dataset.server.indexOf(q) === -1 && (c.dataset.country || '').indexOf(q) === -1) return false;
       return true;
     });
   }
@@ -535,7 +605,7 @@ try {
   bindChips('typeChips', function (v) { typeFilter = v; });
   search.addEventListener('input', function () { shown = PAGE; render(); });
 
-  grid.addEventListener('click', function (e) {
+  document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-copy]');
     if (!b) return;
     var link = b.dataset.copy;
@@ -563,6 +633,30 @@ try {
   }
   tick();
   setInterval(tick, 60000);
+
+  // Countdown to the next 15-minute scan + auto-reload when it arrives
+  var nextScanEl = document.getElementById('nextScan');
+  var SCAN_EVERY = 15 * 60;
+  var nextScanTs = 0;
+  if (ts) {
+    nextScanTs = ts + SCAN_EVERY;
+    var now0 = Math.floor(Date.now() / 1000);
+    while (nextScanTs <= now0) nextScanTs += SCAN_EVERY;
+  }
+  function tickScan() {
+    if (!ts || !nextScanTs) { nextScanEl.textContent = '—'; return; }
+    var remain = nextScanTs - Math.floor(Date.now() / 1000);
+    if (remain <= 0) {
+      nextScanEl.textContent = t.next_scan_na;
+      location.reload();
+      return;
+    }
+    var mm = Math.floor(remain / 60);
+    var ss = remain % 60;
+    nextScanEl.textContent = formatNum(mm) + ':' + formatNum(ss < 10 ? '0' + ss : ss);
+  }
+  tickScan();
+  setInterval(tickScan, 1000);
 
   applyLang();
 })();
