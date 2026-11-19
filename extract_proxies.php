@@ -54,6 +54,9 @@ class ProxyScanner {
 
         $checkedProxies = $this->checkConnectivity($proxies);
 
+        // Resolve each server's country (one batch request to ip-api.com)
+        $checkedProxies = $this->enrichGeo($checkedProxies);
+
         // Sort: Online first, then by lowest latency
         usort($checkedProxies, static function (array $a, array $b): int {
             $aOnline = ($a['status'] === 'Online');
@@ -206,6 +209,61 @@ class ProxyScanner {
         }
 
         return ($len === 32) ? $secret : null;
+    }
+
+    /**
+     * Resolves the country of each unique server via one ip-api.com batch
+     * request (free tier, up to 100 queries per call). Failures are silent:
+     * proxies simply get null country fields.
+     */
+    private function enrichGeo(array $proxies): array {
+        $servers = [];
+        foreach ($proxies as $p) {
+            $servers[$p['server']] = true;
+        }
+        $servers = array_keys($servers);
+        if (empty($servers)) {
+            return $proxies;
+        }
+
+        $geo = [];
+        $payload = json_encode(array_map(static fn (string $s): array => ['query' => $s], $servers));
+        $ch = curl_init('http://ip-api.com/batch?fields=status,country,countryCode,query');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_NOSIGNAL       => 1,
+        ]);
+        $raw = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($raw !== false && $httpCode === 200) {
+            $rows = json_decode((string)$raw, true);
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    if (($row['status'] ?? '') === 'success' && !empty($row['query'])) {
+                        $geo[(string)$row['query']] = [
+                            'country'      => (string)($row['country'] ?? ''),
+                            'country_code' => (string)($row['countryCode'] ?? ''),
+                        ];
+                    }
+                }
+            }
+        }
+        echo "Geo resolved for " . count($geo) . "/" . count($servers) . " servers.\n";
+
+        foreach ($proxies as &$p) {
+            $g = $geo[$p['server']] ?? null;
+            $p['country'] = $g['country'] ?? null;
+            $p['country_code'] = $g['country_code'] ?? null;
+        }
+        unset($p);
+
+        return $proxies;
     }
 
     /**
