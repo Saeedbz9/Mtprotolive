@@ -1,0 +1,33 @@
+name: Extract Telegram Proxies and Update Repo
+
+on:
+  push:
+    branches: [ main, master ]
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract_proxies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.x'
+          extensions: curl
+      - name: Run PHP script to extract proxies
+        run: php extract_proxies.php
+      - name: Commit generated files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          file_pattern: index.html extracted_proxies.json
+          commit_message: Update extracted proxy list and HTML index
+          branch: gh-pages
+          create_branch: true
+          push_options: '--force-with-lease'
