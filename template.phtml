@@ -1,5 +1,5 @@
 <?php
-// template.phtml — MTProtoLive page (Persian RTL, dark glass design)
+// template.phtml — MTProtoLive page (fresh, lively light design)
 // Variables provided by extract_proxies.php:
 //   $proxies (server, port, secret, type, source, status, latency),
 //   $onlineCount, $totalCount, $scanTimestamp
@@ -37,147 +37,168 @@ function type_fa(string $type): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MTProtoLive | پروکسی‌های MTProto زنده</title>
-<meta name="description" content="پروکسی‌های MTProto تلگرام با بررسی زنده و مرتب‌سازی بر اساس پینگ — به‌روزرسانی خودکار هر ۱۵ دقیقه">
+<meta name="description" content="پروکسی‌های MTProto تلگرام با بررسی زنده و مرتب‌سازی بر اساس پینگ">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #070b16;
-    --card: rgba(255,255,255,.045);
-    --card-border: rgba(255,255,255,.09);
-    --text: #eef1f8;
-    --muted: #93a0b8;
-    --violet: #8b5cf6;
-    --cyan: #22d3ee;
-    --green: #34d399;
-    --amber: #fbbf24;
-    --orange: #fb923c;
-    --red: #fb7185;
-  }
   body {
     font-family: 'Vazirmatn', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    color: #1e2433;
     min-height: 100vh;
-    background-image:
-      radial-gradient(600px 300px at 85% -5%, rgba(139,92,246,.28), transparent 60%),
-      radial-gradient(500px 260px at 5% 0%, rgba(34,211,238,.16), transparent 60%);
-    background-attachment: fixed;
+    background: #f3f5fb;
+    overflow-x: hidden;
   }
-  .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 16px 60px; }
-  header { text-align: center; margin-bottom: 26px; }
-  .logo {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-size: 34px; font-weight: 900; letter-spacing: .5px;
-    background: linear-gradient(90deg, var(--violet), var(--cyan));
+  /* Floating colour blobs */
+  .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: .55; z-index: 0; pointer-events: none; }
+  .blob.b1 { width: 420px; height: 420px; background: #c7d2fe; top: -120px; right: -80px; animation: drift 16s ease-in-out infinite alternate; }
+  .blob.b2 { width: 360px; height: 360px; background: #a5f3fc; bottom: -100px; left: -60px; animation: drift 20s ease-in-out infinite alternate-reverse; }
+  .blob.b3 { width: 280px; height: 280px; background: #fbcfe8; top: 38%; left: 32%; animation: drift 24s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.12); } }
+
+  .wrap { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 30px 16px 60px; }
+
+  header { text-align: center; margin-bottom: 8px; animation: fadeDown .6s ease both; }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: #fff; border: 1px solid #e5e7f0; border-radius: 999px;
+    padding: 6px 14px; font-size: 13px; font-weight: 700; color: #059669;
+    box-shadow: 0 2px 10px rgba(30,41,59,.06);
+  }
+  .live-pill i { width: 9px; height: 9px; border-radius: 50%; background: #10b981; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.45); } 70% { box-shadow: 0 0 0 9px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+  h1 {
+    font-size: 42px; font-weight: 900; margin-top: 14px; letter-spacing: .5px;
+    background: linear-gradient(90deg, #7c3aed, #db2777, #0891b2, #7c3aed);
+    background-size: 250% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: slideGrad 7s linear infinite;
   }
-  .logo .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--green);
-    box-shadow: 0 0 12px var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
-  header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
-  .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  @keyframes slideGrad { to { background-position: 250% 0; } }
+  header p { color: #64748b; margin-top: 8px; font-size: 15px; }
+
+  .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
   .stat {
-    background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-    padding: 10px 18px; text-align: center; min-width: 110px; backdrop-filter: blur(8px);
+    background: #fff; border: 1px solid #e8eaf2; border-radius: 20px;
+    padding: 12px 22px; text-align: center; min-width: 110px;
+    box-shadow: 0 4px 16px rgba(30,41,59,.07);
   }
-  .stat b { display: block; font-size: 24px; font-weight: 800; }
-  .stat span { font-size: 12.5px; color: var(--muted); }
-  .stat .on { color: var(--green); }
-  .updated { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .stat b { display: block; font-size: 26px; font-weight: 900; color: #1e2433; }
+  .stat b.green { color: #059669; }
+  .stat span { font-size: 12.5px; color: #64748b; }
+  .updated { text-align: center; color: #64748b; font-size: 13px; margin-top: 14px; }
+
   .toolbar {
+    position: sticky; top: 0; z-index: 10;
     display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
-    margin: 26px 0 18px;
+    margin: 24px 0 18px; padding: 12px;
+    background: rgba(255,255,255,.82); backdrop-filter: blur(12px);
+    border: 1px solid #e8eaf2; border-radius: 18px;
+    box-shadow: 0 6px 20px rgba(30,41,59,.08);
   }
   .search {
-    flex: 1 1 220px; background: var(--card); border: 1px solid var(--card-border);
-    border-radius: 14px; padding: 11px 14px; color: var(--text);
-    font-family: inherit; font-size: 14px; outline: none;
+    flex: 1 1 200px; background: #f1f3f9; border: 1.5px solid transparent;
+    border-radius: 13px; padding: 11px 14px; color: #1e2433;
+    font-family: inherit; font-size: 14px; outline: none; transition: .15s;
   }
-  .search::placeholder { color: var(--muted); }
-  .search:focus { border-color: var(--violet); }
+  .search:focus { background: #fff; border-color: #8b5cf6; }
+  .search::placeholder { color: #94a3b8; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip {
-    background: var(--card); border: 1px solid var(--card-border); color: var(--muted);
+    background: #f1f3f9; border: 1.5px solid transparent; color: #475569;
     border-radius: 999px; padding: 8px 14px; font-family: inherit; font-size: 13px;
-    cursor: pointer; transition: .15s;
+    cursor: pointer; transition: .15s; font-weight: 500;
   }
-  .chip:hover { color: var(--text); border-color: rgba(255,255,255,.25); }
+  .chip:hover { background: #e7eaf5; }
   .chip.active {
-    background: linear-gradient(90deg, var(--violet), #6d28d9); color: #fff;
-    border-color: transparent; font-weight: 700;
+    background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; font-weight: 700;
+    box-shadow: 0 4px 12px rgba(124,58,237,.35);
   }
+  .btn-refresh {
+    display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+    background: linear-gradient(90deg, #0891b2, #2563eb); color: #fff;
+    border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 800;
+    box-shadow: 0 4px 14px rgba(8,145,178,.35); transition: .15s; white-space: nowrap;
+  }
+  .btn-refresh:hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn-refresh .ic { display: inline-block; transition: transform .5s; font-size: 16px; }
+  .btn-refresh:hover .ic { transform: rotate(180deg); }
+
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .card {
-    background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
-    padding: 16px; backdrop-filter: blur(8px);
-    transition: transform .15s, border-color .15s;
+    position: relative; background: #fff; border: 1px solid #e8eaf2; border-radius: 20px;
+    padding: 18px 16px 16px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(30,41,59,.06);
+    transition: transform .18s, box-shadow .18s;
+    animation: rise .45s ease both; animation-delay: calc(var(--i, 0) * 28ms);
   }
-  .card:hover { transform: translateY(-2px); border-color: rgba(139,92,246,.5); }
-  .card.off { opacity: .55; }
-  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .server { font-family: ui-monospace, monospace; font-size: 14px; direction: ltr; text-align: right;
-    word-break: break-all; font-weight: 700; }
-  .port { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(30,41,59,.13); }
+  .card::before {
+    content: ""; position: absolute; top: 0; right: 0; left: 0; height: 4px;
+    background: linear-gradient(90deg, #10b981, #34d399);
+  }
+  .card.off { opacity: .62; }
+  .card.off::before { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
+  .server { font-family: ui-monospace, monospace; font-size: 14.5px; direction: ltr; text-align: right; word-break: break-all; font-weight: 700; color: #1e2433; }
+  .port { color: #64748b; font-size: 12.5px; margin-top: 4px; }
   .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-  .badge {
-    font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
-    border: 1px solid transparent; white-space: nowrap;
-  }
-  .lat-good  { background: rgba(52,211,153,.12); color: #6ee7b7; border-color: rgba(52,211,153,.25); }
-  .lat-mid   { background: rgba(251,191,36,.12);  color: #fcd34d; border-color: rgba(251,191,36,.25); }
-  .lat-slow  { background: rgba(251,146,60,.12);  color: #fdba74; border-color: rgba(251,146,60,.25); }
-  .lat-off   { background: rgba(148,163,184,.12); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
-  .type-tls    { background: rgba(56,189,248,.12);  color: #7dd3fc; border-color: rgba(56,189,248,.25); }
-  .type-secure { background: rgba(129,140,248,.12); color: #a5b4fc; border-color: rgba(129,140,248,.25); }
-  .type-std    { background: rgba(148,163,184,.12); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
+  .badge { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+  .lat-good { background: #d1fae5; color: #047857; }
+  .lat-mid  { background: #fef3c7; color: #b45309; }
+  .lat-slow { background: #ffedd5; color: #c2410c; }
+  .lat-off  { background: #f1f5f9; color: #64748b; }
+  .type-tls    { background: #e0f2fe; color: #0369a1; }
+  .type-secure { background: #ede9fe; color: #6d28d9; }
+  .type-std    { background: #f1f5f9; color: #64748b; }
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 12px; }
-  .status i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .status.on { color: var(--green); } .status.on i { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .status.off { color: var(--muted); } .status.off i { background: #64748b; }
-  .source { color: var(--muted); font-size: 12px; margin-top: 6px; }
-  .source b { color: #c4b5fd; font-weight: 700; }
+  .status i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .status.on { color: #059669; } .status.on i { background: #10b981; animation: pulse 1.6s infinite; }
+  .status.off { color: #94a3b8; } .status.off i { background: #cbd5e1; }
+  .source { color: #64748b; font-size: 12px; margin-top: 6px; }
+  .source b { color: #7c3aed; font-weight: 700; }
   .actions { display: flex; gap: 8px; margin-top: 14px; }
   .btn {
     flex: 1; text-align: center; text-decoration: none; font-family: inherit; cursor: pointer;
-    border-radius: 12px; padding: 10px 8px; font-size: 13.5px; font-weight: 700; border: none;
-    transition: .15s;
+    border-radius: 13px; padding: 11px 8px; font-size: 13.5px; font-weight: 700; border: none; transition: .15s;
   }
-  .btn-connect { background: linear-gradient(90deg, var(--violet), #6d28d9); color: #fff; }
-  .btn-connect:hover { filter: brightness(1.15); }
-  .btn-copy { background: rgba(255,255,255,.07); color: var(--text); border: 1px solid var(--card-border); }
-  .btn-copy:hover { background: rgba(255,255,255,.13); }
-  .more-wrap { text-align: center; margin-top: 26px; }
-  .counter { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
+  .btn-connect { background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,.3); }
+  .btn-connect:hover { filter: brightness(1.1); }
+  .btn-copy { background: #f1f3f9; color: #1e2433; }
+  .btn-copy:hover { background: #e2e8f0; }
+  .more-wrap { text-align: center; margin-top: 28px; }
+  .counter { color: #64748b; font-size: 13.5px; margin-bottom: 12px; }
   .btn-more {
-    background: linear-gradient(90deg, var(--violet), var(--cyan)); color: #fff; border: none;
+    background: linear-gradient(90deg, #7c3aed, #0891b2); color: #fff; border: none;
     font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
-    border-radius: 999px; padding: 13px 34px; transition: .15s;
+    border-radius: 999px; padding: 13px 36px; transition: .15s;
+    box-shadow: 0 6px 18px rgba(124,58,237,.35);
   }
-  .btn-more:hover { filter: brightness(1.12); }
+  .btn-more:hover { transform: translateY(-1px); filter: brightness(1.07); }
   .btn-more:disabled { opacity: .4; cursor: default; }
-  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 15px; display: none; }
-  footer { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 40px; line-height: 1.9; }
-  footer a { color: #a78bfa; text-decoration: none; }
+  .empty { text-align: center; color: #64748b; padding: 40px 0; font-size: 15px; display: none; }
   @media (max-width: 560px) {
-    .logo { font-size: 27px; }
+    h1 { font-size: 32px; }
     .grid { grid-template-columns: 1fr; }
+    .toolbar { top: 8px; }
   }
 </style>
 </head>
 <body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
 <div class="wrap">
   <header>
-    <div class="logo"><span class="dot"></span>MTProtoLive</div>
+    <div class="live-pill"><i></i> زنده — در حال پایش</div>
+    <h1>MTProtoLive</h1>
     <p>پروکسی‌های MTProto تلگرام — با بررسی زنده، مرتب‌شده بر اساس پینگ</p>
     <div class="stats">
-      <div class="stat"><b class="on"><?= fa_digits($onlineCount) ?></b><span>آنلاین</span></div>
+      <div class="stat"><b class="green"><?= fa_digits($onlineCount) ?></b><span>آنلاین</span></div>
       <div class="stat"><b><?= fa_digits($totalCount) ?></b><span>کل پروکسی‌ها</span></div>
       <div class="stat"><b><?= $totalCount > 0 ? fa_digits(round($onlineCount / $totalCount * 100)) . '٪' : '—' ?></b><span>سالم</span></div>
     </div>
-    <div class="updated">آخرین بررسی: <span id="updated" data-ts="<?= (int)$scanTimestamp ?>">…</span> • به‌روزرسانی خودکار هر ۱۵ دقیقه</div>
+    <div class="updated">آخرین بررسی: <span id="updated" data-ts="<?= (int)$scanTimestamp ?>">…</span></div>
   </header>
 
   <div class="toolbar">
@@ -193,23 +214,20 @@ function type_fa(string $type): string {
       <button class="chip" data-type="MTProto Secure">Secure</button>
       <button class="chip" data-type="MTProto">معمولی</button>
     </div>
+    <a class="btn-refresh" href="https://github.com/Saeedbz9/MTProtoLive/actions/workflows/extract_proxies.yml" target="_blank" rel="noopener"><span class="ic">↻</span> بررسی مجدد</a>
   </div>
 
   <div class="grid" id="grid">
-    <?php foreach ($proxies as $p):
+    <?php $i = 0; foreach ($proxies as $p):
       $tg = 'tg://proxy?server=' . rawurlencode($p['server']) . '&port=' . (int)$p['port'] . '&secret=' . rawurlencode($p['secret']);
       $online = ($p['status'] === 'Online');
     ?>
-    <article class="card<?= $online ? '' : ' off' ?>"
+    <article class="card<?= $online ? '' : ' off' ?>" style="--i:<?= $i++ ?>"
       data-status="<?= $online ? 'Online' : 'Offline' ?>"
       data-type="<?= htmlspecialchars($p['type']) ?>"
       data-server="<?= htmlspecialchars(strtolower($p['server'])) ?>">
-      <div class="card-top">
-        <div>
-          <div class="server"><?= htmlspecialchars($p['server']) ?></div>
-          <div class="port">پورت <?= fa_digits($p['port']) ?></div>
-        </div>
-      </div>
+      <div class="server"><?= htmlspecialchars($p['server']) ?></div>
+      <div class="port">پورت <?= fa_digits($p['port']) ?></div>
       <div class="badges">
         <span class="badge <?= latency_class($p['latency'] ?? null) ?>"><?= $online ? '⚡ ' . fa_digits($p['latency']) . ' ms' : 'بدون پاسخ' ?></span>
         <span class="badge <?= type_class($p['type']) ?>"><?= type_fa($p['type']) ?></span>
@@ -230,11 +248,6 @@ function type_fa(string $type): string {
     <div class="counter" id="counter"></div>
     <button class="btn-more" id="moreBtn">۲۰ تای بعدی</button>
   </div>
-
-  <footer>
-    پروکسی‌ها از کانال‌های عمومی تلگرام جمع‌آوری و با اتصال TCP واقعی بررسی می‌شوند.<br>
-    ساخته‌شده بر اساس <a href="https://github.com/itsyebekhe/MTProtoNexus" target="_blank" rel="noopener">MTProtoNexus</a> (MIT) — هر ۱۵ دقیقه با GitHub Actions به‌روز می‌شود.
-  </footer>
 </div>
 
 <script>
