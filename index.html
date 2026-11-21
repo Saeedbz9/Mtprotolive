@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTProtoLive | پروکسی‌های MTProto زنده</title>
+<meta name="description" content="پروکسی‌های MTProto تلگرام با بررسی زنده و مرتب‌سازی بر اساس پینگ">
+<script>
+/* Theme + language before paint. Default theme: dark (night). Default language: fa. */
+try {
+  var _t = localStorage.getItem('mtprotolive-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+  var _l = localStorage.getItem('mtprotolive-lang') || 'fa';
+  document.documentElement.setAttribute('lang', _l);
+  document.documentElement.setAttribute('dir', _l === 'en' ? 'ltr' : 'rtl');
+} catch (e) {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f3f5fb;
+    --text: #1e2433;
+    --muted: #64748b;
+    --glass: rgba(255,255,255,.55);
+    --glass-strong: rgba(255,255,255,.72);
+    --glass-border: rgba(255,255,255,.65);
+    --glass-hi: rgba(255,255,255,.75);
+    --input: rgba(255,255,255,.5);
+    --shadow: rgba(30,41,59,.10);
+    --shadow-lg: rgba(30,41,59,.16);
+    --blob-o: .55;
+  }
+  html[data-theme="dark"] {
+    --bg: #070b16;
+    --text: #eef1f8;
+    --muted: #93a0b8;
+    --glass: rgba(255,255,255,.06);
+    --glass-strong: rgba(255,255,255,.09);
+    --glass-border: rgba(255,255,255,.14);
+    --glass-hi: rgba(255,255,255,.16);
+    --input: rgba(255,255,255,.07);
+    --shadow: rgba(0,0,0,.45);
+    --shadow-lg: rgba(0,0,0,.6);
+    --blob-o: .35;
+  }
+  body {
+    font-family: 'Vazirmatn', system-ui, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    background: var(--bg);
+    overflow-x: hidden;
+    transition: background .35s, color .35s;
+  }
+  /* Floating colour blobs */
+  .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: var(--blob-o); z-index: 0; pointer-events: none; transition: opacity .35s; }
+  .blob.b1 { width: 420px; height: 420px; background: #c7d2fe; top: -120px; right: -80px; animation: drift 16s ease-in-out infinite alternate; }
+  .blob.b2 { width: 360px; height: 360px; background: #a5f3fc; bottom: -100px; left: -60px; animation: drift 20s ease-in-out infinite alternate-reverse; }
+  .blob.b3 { width: 280px; height: 280px; background: #fbcfe8; top: 38%; left: 32%; animation: drift 24s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.12); } }
+
+  /* Liquid glass base */
+  .glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 8px 24px var(--shadow);
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 18px 16px 60px; }
+
+  /* Top bar: theme toggle + language switcher, separate from the menu */
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .theme-toggle {
+    position: relative; width: 46px; height: 46px; border-radius: 50%;
+    cursor: pointer; overflow: hidden; flex: none;
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8); backdrop-filter: blur(20px) saturate(1.8);
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 6px 18px var(--shadow);
+    transition: transform .2s;
+  }
+  .theme-toggle:hover { transform: scale(1.07); }
+  .theme-toggle span {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; transition: transform .55s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  }
+  html[data-theme="light"] .theme-toggle .moon { transform: translateY(130%) rotate(100deg); opacity: 0; }
+  html[data-theme="light"] .theme-toggle .sun { transform: none; opacity: 1; }
+  html[data-theme="dark"] .theme-toggle .sun { transform: translateY(-130%) rotate(-100deg); opacity: 0; }
+  html[data-theme="dark"] .theme-toggle .moon { transform: none; opacity: 1; }
+
+  .lang-switch {
+    display: flex; gap: 2px; border-radius: 999px; padding: 4px;
+  }
+  .lang-switch button {
+    background: transparent; border: none; color: var(--muted);
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: .18s;
+  }
+  .lang-switch button:hover { color: var(--text); }
+  .lang-switch button.active {
+    background: linear-gradient(135deg, rgba(124,58,237,.9), rgba(219,39,119,.9));
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 3px 10px rgba(124,58,237,.35);
+  }
+
+  header { text-align: center; margin-bottom: 8px; animation: fadeDown .6s ease both; }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: #059669;
+  }
+  html[data-theme="dark"] .live-pill { color: #6ee7b7; }
+  .live-pill i { width: 9px; height: 9px; border-radius: 50%; background: #10b981; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.45); } 70% { box-shadow: 0 0 0 9px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+  h1 {
+    font-size: 42px; font-weight: 900; margin-top: 14px; letter-spacing: .5px;
+    background: linear-gradient(90deg, #7c3aed, #db2777, #0891b2, #7c3aed);
+    background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: slideGrad 7s linear infinite;
+  }
+  @keyframes slideGrad { to { background-position: 250% 0; } }
+  header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  .stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  .stat { border-radius: 20px; padding: 12px 22px; text-align: center; min-width: 110px; }
+  .stat b { display: block; font-size: 26px; font-weight: 900; }
+  .stat b.green { color: #059669; }
+  html[data-theme="dark"] .stat b.green { color: #34d399; }
+  .stat span { font-size: 12.5px; color: var(--muted); }
+  .updated { text-align: center; color: var(--muted); font-size: 13px; margin-top: 14px; }
+  .next-scan { text-align: center; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .next-scan b { color: var(--text); font-weight: 800; }
+
+  .fastest {
+    position: relative; border-radius: 22px; padding: 18px 18px 16px; margin: 22px 0 4px; overflow: hidden;
+  }
+  .fastest::before {
+    content: ""; position: absolute; top: 0; right: 0; left: 0; height: 5px;
+    background: linear-gradient(90deg, #7c3aed, #db2777, #0891b2, #7c3aed);
+    background-size: 200% 100%; animation: slideGrad 5s linear infinite;
+  }
+  .fastest-label { font-size: 13.5px; font-weight: 800; color: #db2777; display: flex; align-items: center; gap: 6px; }
+  html[data-theme="dark"] .fastest-label { color: #f472b6; }
+  .fastest .server { font-size: 17px; margin-top: 10px; }
+
+  .toolbar {
+    position: sticky; top: 10px; z-index: 10;
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin: 24px 0 18px; padding: 12px; border-radius: 22px;
+  }
+  .search {
+    flex: 1 1 200px; background: var(--input);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--glass-border); border-radius: 16px;
+    padding: 11px 14px; color: var(--text);
+    font-family: inherit; font-size: 14px; outline: none; transition: .15s;
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .search:focus { border-color: #8b5cf6; background: var(--glass-strong); }
+  .search::placeholder { color: var(--muted); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    background: var(--input);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid var(--glass-border); color: var(--muted);
+    border-radius: 999px; padding: 9px 15px; font-family: inherit; font-size: 13px;
+    cursor: pointer; transition: .18s; font-weight: 500;
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .chip:hover { color: var(--text); transform: translateY(-1px); }
+  .chip.active {
+    background: linear-gradient(90deg, rgba(124,58,237,.85), rgba(219,39,119,.85));
+    -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+    color: #fff; font-weight: 700; border-color: rgba(255,255,255,.4);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 4px 14px rgba(124,58,237,.35);
+  }
+  .btn-glass {
+    display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+    border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 800;
+    font-family: inherit; cursor: pointer; white-space: nowrap; transition: .18s;
+    color: #fff; border: 1px solid rgba(255,255,255,.45);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -8px 16px rgba(255,255,255,.12), 0 6px 18px var(--shadow);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8); backdrop-filter: blur(16px) saturate(1.8);
+  }
+  .btn-glass:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .btn-refresh { background: linear-gradient(135deg, rgba(8,145,178,.85), rgba(37,99,235,.85)); }
+  .btn-refresh .ic { display: inline-block; transition: transform .5s; font-size: 16px; }
+  .btn-refresh:hover .ic { transform: rotate(180deg); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .card {
+    position: relative; border-radius: 22px;
+    padding: 18px 16px 16px; overflow: hidden;
+    transition: transform .18s, box-shadow .18s;
+    animation: rise .45s ease both; animation-delay: calc(var(--i, 0) * 28ms);
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .card:hover { transform: translateY(-4px); box-shadow: inset 0 1px 0 var(--glass-hi), 0 14px 30px var(--shadow-lg); }
+  .card::before {
+    content: ""; position: absolute; top: 0; right: 0; left: 0; height: 4px;
+    background: linear-gradient(90deg, #10b981, #34d399);
+  }
+  .card.off { opacity: .6; }
+  .card.off::before { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
+  .server { font-family: ui-monospace, monospace; font-size: 14.5px; direction: ltr; text-align: right; word-break: break-all; font-weight: 700; }
+  html[dir="ltr"] .server { text-align: left; }
+  .port { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .badge { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+  .lat-good { background: rgba(16,185,129,.16); color: #047857; }
+  .lat-mid  { background: rgba(245,158,11,.16); color: #b45309; }
+  .lat-slow { background: rgba(249,115,22,.16); color: #c2410c; }
+  .lat-off  { background: rgba(100,116,139,.16); color: var(--muted); }
+  html[data-theme="dark"] .lat-good { color: #6ee7b7; }
+  html[data-theme="dark"] .lat-mid { color: #fcd34d; }
+  html[data-theme="dark"] .lat-slow { color: #fdba74; }
+  .type-tls    { background: rgba(14,165,233,.14); color: #0369a1; }
+  .country-badge { background: rgba(100,116,139,.14); color: var(--text); }
+  .type-secure { background: rgba(139,92,246,.14); color: #6d28d9; }
+  .type-std    { background: rgba(100,116,139,.14); color: var(--muted); }
+  html[data-theme="dark"] .type-tls { color: #7dd3fc; }
+  html[data-theme="dark"] .type-secure { color: #c4b5fd; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-top: 12px; }
+  .status i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .status.on { color: #059669; } .status.on i { background: #10b981; animation: pulse 1.6s infinite; }
+  html[data-theme="dark"] .status.on { color: #34d399; }
+  .status.off { color: var(--muted); } .status.off i { background: #cbd5e1; }
+  .source { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .source b { color: #7c3aed; font-weight: 700; }
+  html[data-theme="dark"] .source b { color: #a78bfa; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .btn {
+    flex: 1; text-align: center; text-decoration: none; font-family: inherit; cursor: pointer;
+    border-radius: 16px; padding: 11px 8px; font-size: 13.5px; font-weight: 700; border: none; transition: .15s;
+  }
+  .btn-connect {
+    background: linear-gradient(135deg, rgba(124,58,237,.9), rgba(219,39,119,.9)); color: #fff;
+    border: 1px solid rgba(255,255,255,.4);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 4px 14px rgba(124,58,237,.3);
+  }
+  .btn-connect:hover { filter: brightness(1.1); }
+  .btn-copy {
+    background: var(--input); color: var(--text);
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+    box-shadow: inset 0 1px 0 var(--glass-hi);
+  }
+  .btn-copy:hover { background: var(--glass-strong); }
+  .more-wrap { text-align: center; margin-top: 28px; }
+  .counter { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
+  .btn-more {
+    background: linear-gradient(135deg, rgba(124,58,237,.9), rgba(8,145,178,.9)); color: #fff; border: 1px solid rgba(255,255,255,.4);
+    font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+    border-radius: 999px; padding: 13px 36px; transition: .15s;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 18px rgba(124,58,237,.35);
+  }
+  .btn-more:hover { transform: translateY(-1px); filter: brightness(1.07); }
+  .btn-more:disabled { opacity: .4; cursor: default; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 15px; display: none; }
+  @media (max-width: 560px) {
+    h1 { font-size: 32px; }
+    .grid { grid-template-columns: 1fr; }
+    .toolbar { top: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+<div class="wrap">
+  <div class="topbar">
+    <div class="lang-switch glass" id="langSwitch">
+      <button data-lang="fa" class="active">فارسی</button>
+      <button data-lang="en">English</button>
+      <button data-lang="ar">العربية</button>
+    </div>
+    <button class="theme-toggle" id="themeBtn" type="button" aria-label="theme">
+      <span class="sun">☀️</span><span class="moon">🌙</span>
+    </button>
+  </div>
+
+  <header>
+    <div class="live-pill glass"><i></i><span data-i18n="live">زنده — در حال پایش</span></div>
+    <h1>MTProtoLive</h1>
+    <p data-i18n="subtitle">پروکسی‌های MTProto تلگرام — با بررسی زنده، مرتب‌شده بر اساس پینگ</p>
+    <div class="stats">
+      <div class="stat glass"><b class="green" data-num="48">۴۸</b><span data-i18n="online">آنلاین</span></div>
+      <div class="stat glass"><b data-num="51">۵۱</b><span data-i18n="total">کل پروکسی‌ها</span></div>
+      <div class="stat glass"><b data-num="94" data-pct="1">۹۴٪</b><span data-i18n="healthy">سالم</span></div>
+    </div>
+    <div class="updated"><span data-i18n="updated">آخرین بررسی:</span> <span id="updated" data-ts="1795273624">…</span></div>
+    <div class="next-scan"><span data-i18n="next_scan">اسکن بعدی تا</span> <b id="nextScan">…</b></div>
+  </header>
+
+    <div class="fastest glass">
+    <div class="fastest-label">⚡ <span data-i18n="fastest">سریع‌ترین پروکسی</span></div>
+    <div class="server">you.pelastic.co.uk.</div>
+    <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+    <div class="badges">
+      <span class="badge lat-mid">⚡ <span data-num="320">۳۲۰</span> ms</span>
+      <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+          </div>
+    <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+    <div class="source"><span data-i18n="source">منبع</span>: <b>@NetAccount</b></div>
+    <div class="actions">
+      <a class="btn btn-connect" href="tg://proxy?server=you.pelastic.co.uk.&amp;port=443&amp;secret=ddc3b375786a3b9630e44cf87d2033a441" data-i18n="connect">اتصال در تلگرام</a>
+      <button class="btn btn-copy" data-copy="tg://proxy?server=you.pelastic.co.uk.&amp;port=443&amp;secret=ddc3b375786a3b9630e44cf87d2033a441" data-i18n="copy">کپی لینک</button>
+    </div>
+  </div>
+  
+  <div class="toolbar glass">
+    <input class="search" id="search" type="search" data-i18n-ph="search_ph" placeholder="جستجو در سرور… (مثال: 149.154)">
+    <div class="chips" id="statusChips">
+      <button class="chip active" data-status="all" data-i18n="all">همه</button>
+      <button class="chip" data-status="Online" data-i18n="online">آنلاین</button>
+      <button class="chip" data-status="Offline" data-i18n="offline">آفلاین</button>
+    </div>
+    <div class="chips" id="typeChips">
+      <button class="chip active" data-type="all" data-i18n="all_types">همه نوع‌ها</button>
+      <button class="chip" data-type="MTProto TLS">TLS</button>
+      <button class="chip" data-type="MTProto Secure">Secure</button>
+      <button class="chip" data-type="MTProto" data-i18n="standard">معمولی</button>
+    </div>
+    <a class="btn-glass btn-refresh" href="https://github.com/Saeedbz9/MTProtoLive/actions/workflows/extract_proxies.yml" target="_blank" rel="noopener"><span class="ic">↻</span> <span data-i18n="refresh">بررسی مجدد</span></a>
+  </div>
+
+  <div class="grid" id="grid">
+        <article class="card glass" style="--i:0"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="you.pelastic.co.uk.">
+      <div class="server">you.pelastic.co.uk.</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-mid">⚡ <span data-num="320">۳۲۰</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@NetAccount</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=you.pelastic.co.uk.&amp;port=443&amp;secret=ddc3b375786a3b9630e44cf87d2033a441" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=you.pelastic.co.uk.&amp;port=443&amp;secret=ddc3b375786a3b9630e44cf87d2033a441" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:1"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="maple.paperteapot.com">
+      <div class="server">maple.paperteapot.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-mid">⚡ <span data-num="348">۳۴۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=maple.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946d61706c652e7061706572746561706f742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=maple.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946d61706c652e7061706572746561706f742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:2"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country="germany de"
+      data-server="94.130.226.7">
+      <div class="server">94.130.226.7</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-mid">⚡ <span data-num="348">۳۴۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+                <span class="badge country-badge">🇩🇪 Germany</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@NetAccount</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=94.130.226.7&amp;port=8443&amp;secret=ee5f7ce28a2c4816c6c923dfd4d5630e01" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=94.130.226.7&amp;port=8443&amp;secret=ee5f7ce28a2c4816c6c923dfd4d5630e01" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:3"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="maple.velvetwindow.cc">
+      <div class="server">maple.velvetwindow.cc</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="633">۶۳۳</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=maple.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946d61706c652e76656c76657477696e646f772e6363" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=maple.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946d61706c652e76656c76657477696e646f772e6363" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:4"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="violetvalley.paperteapot.com">
+      <div class="server">violetvalley.paperteapot.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="649">۶۴۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=violetvalley.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9476696f6c657476616c6c65792e7061706572746561706f742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=violetvalley.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9476696f6c657476616c6c65792e7061706572746561706f742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:5"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="violetvalley.velvetwindow.cc">
+      <div class="server">violetvalley.velvetwindow.cc</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="674">۶۷۴</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=violetvalley.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9476696f6c657476616c6c65792e76656c76657477696e646f772e6363" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=violetvalley.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9476696f6c657476616c6c65792e76656c76657477696e646f772e6363" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:6"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="tond.strobox.info">
+      <div class="server">Tond.strobox.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="694">۶۹۴</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=Tond.strobox.info&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=Tond.strobox.info&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:7"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="fast.strobox.info">
+      <div class="server">fast.strobox.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="835">۸۳۵</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=fast.strobox.info&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=fast.strobox.info&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:8"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="polar.paperteapot.com">
+      <div class="server">polar.paperteapot.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="976">۹۷۶</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=polar.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c94706f6c61722e7061706572746561706f742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=polar.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c94706f6c61722e7061706572746561706f742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:9"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="polar.velvetwindow.cc">
+      <div class="server">polar.velvetwindow.cc</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="1361">۱۳۶۱</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=polar.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c94706f6c61722e76656c76657477696e646f772e6363" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=polar.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c94706f6c61722e76656c76657477696e646f772e6363" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:10"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="mt1.hiesen-proxy.ru">
+      <div class="server">mt1.hiesen-proxy.ru</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="1428">۱۴۲۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TProxyRU</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=mt1.hiesen-proxy.ru&amp;port=443&amp;secret=ee785147b766a76a27abd34ee1a98a8ec0676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=mt1.hiesen-proxy.ru&amp;port=443&amp;secret=ee785147b766a76a27abd34ee1a98a8ec0676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:11"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="tg.prxtg.top">
+      <div class="server">tg.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="1988">۱۹۸۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=tg.prxtg.top&amp;port=443&amp;secret=ee2d1bb45f31056d1063563fc6e38e5a1064726976652e676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=tg.prxtg.top&amp;port=443&amp;secret=ee2d1bb45f31056d1063563fc6e38e5a1064726976652e676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:12"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="gram.prxtg.top">
+      <div class="server">gram.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="1998">۱۹۹۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=gram.prxtg.top&amp;port=443&amp;secret=eeabde1be2accd3413ec8e8a0fa256287f64726976652e676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=gram.prxtg.top&amp;port=443&amp;secret=eeabde1be2accd3413ec8e8a0fa256287f64726976652e676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:13"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="w.prxtg.top">
+      <div class="server">w.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2008">۲۰۰۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=w.prxtg.top&amp;port=443&amp;secret=eec15b39b08e586ff58acd45d81178bf1864726976652e676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=w.prxtg.top&amp;port=443&amp;secret=eec15b39b08e586ff58acd45d81178bf1864726976652e676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:14"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="www.prxtg.top">
+      <div class="server">www.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2056">۲۰۵۶</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=www.prxtg.top&amp;port=443&amp;secret=ee4274afdce63c4c3a2b341bad09220a047777772e70727874672e746f70" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=www.prxtg.top&amp;port=443&amp;secret=ee4274afdce63c4c3a2b341bad09220a047777772e70727874672e746f70" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:15"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="sso.prxtg.top">
+      <div class="server">sso.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2313">۲۳۱۳</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=sso.prxtg.top&amp;port=443&amp;secret=ee81155f42409fce134de8524006051c6973736f2e70727874672e746f70" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=sso.prxtg.top&amp;port=443&amp;secret=ee81155f42409fce134de8524006051c6973736f2e70727874672e746f70" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:16"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="fandogh.co.uk">
+      <div class="server">fandogh.co.uk</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="4455">۴۴۵۵</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2547">۲۵۴۷</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=fandogh.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=fandogh.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:17"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="mobile.prxtg.top">
+      <div class="server">mobile.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2633">۲۶۳۳</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=mobile.prxtg.top&amp;port=443&amp;secret=ee8ae40a2aa7554a058f3340b6449e4e666d6f62696c652e70727874672e746f70" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=mobile.prxtg.top&amp;port=443&amp;secret=ee8ae40a2aa7554a058f3340b6449e4e666d6f62696c652e70727874672e746f70" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:18"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="z.prxtg.top">
+      <div class="server">z.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2889">۲۸۸۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=z.prxtg.top&amp;port=443&amp;secret=ee7e17a7ab0683c8c697302c61363d5e957a2e70727874672e746f70" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=z.prxtg.top&amp;port=443&amp;secret=ee7e17a7ab0683c8c697302c61363d5e957a2e70727874672e746f70" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:19"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="top.fastprx.top">
+      <div class="server">top.fastprx.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2941">۲۹۴۱</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=top.fastprx.top&amp;port=443&amp;secret=ee2eaa3efe26957df17447871a78aa19b064726976652e676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=top.fastprx.top&amp;port=443&amp;secret=ee2eaa3efe26957df17447871a78aa19b064726976652e676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:20"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="fast.prxtg.top">
+      <div class="server">fast.prxtg.top</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="2991">۲۹۹۱</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@webproxy</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=fast.prxtg.top&amp;port=443&amp;secret=ee2c6cbde6f1e8947d8495ea1de476fc0b64726976652e676f6f676c652e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=fast.prxtg.top&amp;port=443&amp;secret=ee2c6cbde6f1e8947d8495ea1de476fc0b64726976652e676f6f676c652e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:21"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="nyakawai.shop">
+      <div class="server">nyakawai.shop</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3039">۳۰۳۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=nyakawai.shop&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=nyakawai.shop&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:22"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="matrixxx.wtf">
+      <div class="server">matrixxx.wtf</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3063">۳۰۶۳</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=matrixxx.wtf&amp;port=443&amp;secret=ee9250b2b65b8921d01a306376fc2dd2ca6d617472697878782e777466" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=matrixxx.wtf&amp;port=443&amp;secret=ee9250b2b65b8921d01a306376fc2dd2ca6d617472697878782e777466" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:23"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="matrixxx.vip">
+      <div class="server">matrixxx.vip</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3095">۳۰۹۵</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=matrixxx.vip&amp;port=443&amp;secret=eed0c83b444210a4302be4b1fe17714d4e6d617472697878782e766970" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=matrixxx.vip&amp;port=443&amp;secret=eed0c83b444210a4302be4b1fe17714d4e6d617472697878782e766970" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:24"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="kvas.kemerovo.online">
+      <div class="server">kvas.kemerovo.online</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3247">۳۲۴۷</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=kvas.kemerovo.online&amp;port=8443&amp;secret=ee888877776666555544443333222211117474322e6d79726b612e6469676974616c" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=kvas.kemerovo.online&amp;port=8443&amp;secret=ee888877776666555544443333222211117474322e6d79726b612e6469676974616c" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:25"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="valenki.kemerovo.online">
+      <div class="server">valenki.kemerovo.online</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3279">۳۲۷۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=valenki.kemerovo.online&amp;port=443&amp;secret=eed80703ad02e82988a4b6b4d437fe2c9c76616c656e6b692e6b656d65726f766f2e6f6e6c696e65" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=valenki.kemerovo.online&amp;port=443&amp;secret=eed80703ad02e82988a4b6b4d437fe2c9c76616c656e6b692e6b656d65726f766f2e6f6e6c696e65" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:26"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="barsik.subaru-volga.com">
+      <div class="server">barsik.subaru-volga.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3302">۳۳۰۲</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=barsik.subaru-volga.com&amp;port=443&amp;secret=ee04daa35f7150d1d16c43f270c26831086a61726b6f2e6d79726b612e6469676974616c" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=barsik.subaru-volga.com&amp;port=443&amp;secret=ee04daa35f7150d1d16c43f270c26831086a61726b6f2e6d79726b612e6469676974616c" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:27"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="freeconnect.lol">
+      <div class="server">freeconnect.lol</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3363">۳۳۶۳</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=freeconnect.lol&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=freeconnect.lol&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:28"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="proxtstar.live">
+      <div class="server">proxtstar.live</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3530">۳۵۳۰</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=proxtstar.live&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=proxtstar.live&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:29"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="ultraproxy.shop">
+      <div class="server">ultraproxy.shop</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3569">۳۵۶۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=ultraproxy.shop&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=ultraproxy.shop&amp;port=443&amp;secret=eeec15a78c3842e866c302c8526175a68c7975672d6c696e6b2e7275" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:30"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="light.paperteapot.com">
+      <div class="server">light.paperteapot.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3592">۳۵۹۲</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=light.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946c696768742e7061706572746561706f742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=light.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946c696768742e7061706572746561706f742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:31"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="light.velvetwindow.cc">
+      <div class="server">light.velvetwindow.cc</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3668">۳۶۶۸</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=light.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946c696768742e76656c76657477696e646f772e6363" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=light.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c946c696768742e76656c76657477696e646f772e6363" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:32"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="russia.knox-proxy.world">
+      <div class="server">russia.knox-proxy.world</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="4515">۴۵۱۵</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="3954">۳۹۵۴</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=russia.knox-proxy.world&amp;port=4515&amp;secret=eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=russia.knox-proxy.world&amp;port=4515&amp;secret=eee9a4f23b1d768c04a8d7f39120ca5b6e626973636f7474692e79656b74616e65742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:33"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="sun.paperteapot.com">
+      <div class="server">sun.paperteapot.com</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="4009">۴۰۰۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=sun.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9473756e2e7061706572746561706f742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=sun.paperteapot.com&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9473756e2e7061706572746561706f742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:34"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="sun.velvetwindow.cc">
+      <div class="server">sun.velvetwindow.cc</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="4695">۴۶۹۵</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@ProxyMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=sun.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9473756e2e76656c76657477696e646f772e6363" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=sun.velvetwindow.cc&amp;port=443&amp;secret=eed09fb30e9ba945e3eb272875413c8c9473756e2e76656c76657477696e646f772e6363" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:35"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="speed-speed.co.uk.">
+      <div class="server">Speed-speed.co.uk.</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5139">۵۱۳۹</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@drproxy_channel</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=Speed-speed.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=Speed-speed.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:36"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="bo0ji.co.uk.">
+      <div class="server">bo0ji.co.uk.</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5331">۵۳۳۱</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@drproxy_channel</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=bo0ji.co.uk.&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=bo0ji.co.uk.&amp;port=443&amp;secret=ddf0eeb0bd9adc4fd4a93994ee3b2a216b" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:37"
+      data-status="Online"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="rudmoain.co.uk.">
+      <div class="server">Rudmoain.co.uk.</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5355">۵۳۵۵</span> ms</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@drproxy_channel</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=Rudmoain.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=Rudmoain.co.uk.&amp;port=443&amp;secret=eef0eeb0bd9adc4fd4a93994ee3b2a216b63646e2e79656b74616e65742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:38"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="kasco.alhosein.co.uk">
+      <div class="server">kasco.alhosein.co.uk</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="4455">۴۴۵۵</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5379">۵۳۷۹</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=kasco.alhosein.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=kasco.alhosein.co.uk&amp;port=4455&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:39"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="77eh.ir.meli-n13.info">
+      <div class="server">77eh.ir.meli-n13.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5588">۵۵۸۸</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=77eh.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=77eh.ir.meli-n13.info&amp;port=8443&amp;secret=104462821249bd7ac519130220c25d09" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:40"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country=" "
+      data-server="dhe9.ir.ir.ir.meli-n12.info">
+      <div class="server">dhe9.ir.ir.ir.meli-n12.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5652">۵۶۵۲</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=dhe9.ir.ir.ir.meli-n12.info&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=dhe9.ir.ir.ir.meli-n12.info&amp;port=8443&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:41"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="godratmand-server.davooti.info">
+      <div class="server">godratmand-server.davooti.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5718">۵۷۱۸</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=godratmand-server.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=godratmand-server.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:42"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="iran-cinema-acctor.davooti.info">
+      <div class="server">iran-cinema-acctor.davooti.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5809">۵۸۰۹</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=iran-cinema-acctor.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=iran-cinema-acctor.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:43"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="zzzzzzz.davooti.info">
+      <div class="server">zzzzzzz.davooti.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="5847">۵۸۴۷</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=zzzzzzz.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=zzzzzzz.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:44"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="amir-kabir.davooti.info">
+      <div class="server">amir-kabir.davooti.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="6128">۶۱۲۸</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=amir-kabir.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=amir-kabir.davooti.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:45"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="man-mamnon-misham-aziz.logmanfi.info">
+      <div class="server">man-mamnon-misham-aziz.logmanfi.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="6269">۶۲۶۹</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=man-mamnon-misham-aziz.logmanfi.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=man-mamnon-misham-aziz.logmanfi.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:46"
+      data-status="Online"
+      data-type="MTProto Secure"
+      data-country="united states us"
+      data-server="31.57.185.235">
+      <div class="server">31.57.185.235</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="6269">۶۲۶۹</span> ms</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+                <span class="badge country-badge">🇺🇸 United States</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=31.57.185.235&amp;port=443&amp;secret=dd890938bf53a1dab0a211a217a9260763" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=31.57.185.235&amp;port=443&amp;secret=dd890938bf53a1dab0a211a217a9260763" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass" style="--i:47"
+      data-status="Online"
+      data-type="MTProto"
+      data-country=" "
+      data-server="breeze.logmanfi.info">
+      <div class="server">breeze.logmanfi.info</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="8443">۸۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-slow">⚡ <span data-num="6377">۶۳۷۷</span> ms</span>
+                <span class="badge type-std type-badge" data-type="MTProto">معمولی</span>
+              </div>
+      <div class="status on"><i></i><span class="status-txt" data-status="Online">آنلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=breeze.logmanfi.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=breeze.logmanfi.info&amp;port=8443&amp;secret=1603010200010001fc030386e24c3add" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass off" style="--i:48"
+      data-status="Offline"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="85.133.194.17.ir-vlue3.ir">
+      <div class="server">85.133.194.17.ir-vlue3.ir</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="4443">۴۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-off" data-i18n="no_response">بدون پاسخ</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status off"><i></i><span class="status-txt" data-status="Offline">آفلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@mtpproxyirani</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=85.133.194.17.ir-vlue3.ir&amp;port=4443&amp;secret=ee79e7010200010007f0030386e24c3add626973636f7474692e79656b74616e65742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=85.133.194.17.ir-vlue3.ir&amp;port=4443&amp;secret=ee79e7010200010007f0030386e24c3add626973636f7474692e79656b74616e65742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass off" style="--i:49"
+      data-status="Offline"
+      data-type="MTProto TLS"
+      data-country=" "
+      data-server="85.133.194.18.ir-vlue3.ir">
+      <div class="server">85.133.194.18.ir-vlue3.ir</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="4443">۴۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-off" data-i18n="no_response">بدون پاسخ</span>
+                <span class="badge type-tls type-badge" data-type="MTProto TLS">TLS</span>
+              </div>
+      <div class="status off"><i></i><span class="status-txt" data-status="Offline">آفلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@mtpproxyirani</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=85.133.194.18.ir-vlue3.ir&amp;port=4443&amp;secret=ee79e7010200010007f0030386e24c3add626973636f7474692e79656b74616e65742e636f6d" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=85.133.194.18.ir-vlue3.ir&amp;port=4443&amp;secret=ee79e7010200010007f0030386e24c3add626973636f7474692e79656b74616e65742e636f6d" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+        <article class="card glass off" style="--i:50"
+      data-status="Offline"
+      data-type="MTProto Secure"
+      data-country="netherlands nl"
+      data-server="91.221.190.198">
+      <div class="server">91.221.190.198</div>
+      <div class="port"><span data-i18n="port">پورت</span> <span data-num="443">۴۴۳</span></div>
+      <div class="badges">
+                <span class="badge lat-off" data-i18n="no_response">بدون پاسخ</span>
+                <span class="badge type-secure type-badge" data-type="MTProto Secure">Secure</span>
+                <span class="badge country-badge">🇳🇱 Netherlands</span>
+              </div>
+      <div class="status off"><i></i><span class="status-txt" data-status="Offline">آفلاین</span></div>
+      <div class="source"><span data-i18n="source">منبع</span>: <b>@TelMTProto</b></div>
+      <div class="actions">
+        <a class="btn btn-connect" href="tg://proxy?server=91.221.190.198&amp;port=443&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="connect">اتصال در تلگرام</a>
+        <button class="btn btn-copy" data-copy="tg://proxy?server=91.221.190.198&amp;port=443&amp;secret=dd104462821249bd7ac519130220c25d09" data-i18n="copy">کپی لینک</button>
+      </div>
+    </article>
+      </div>
+
+  <div class="empty" id="empty" data-i18n="empty">موردی با این فیلتر پیدا نشد.</div>
+
+  <div class="more-wrap">
+    <div class="counter" id="counter"></div>
+    <button class="btn-more" id="moreBtn" data-i18n="more">۲۰ تای بعدی</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var PAGE = 20;
+  var grid = document.getElementById('grid');
+  var cards = Array.prototype.slice.call(grid.querySelectorAll('.card'));
+  var moreBtn = document.getElementById('moreBtn');
+  var counter = document.getElementById('counter');
+  var empty = document.getElementById('empty');
+  var search = document.getElementById('search');
+  var statusFilter = 'all', typeFilter = 'all', shown = PAGE;
+
+  /* ---------- i18n: fa / en / ar ---------- */
+  var I18N = {
+    fa: {
+      subtitle: 'پروکسی‌های MTProto تلگرام — با بررسی زنده، مرتب‌شده بر اساس پینگ',
+      live: 'زنده — در حال پایش',
+      online: 'آنلاین', total: 'کل پروکسی‌ها', healthy: 'سالم',
+      updated: 'آخرین بررسی:',
+      fastest: 'سریع‌ترین پروکسی',
+      next_scan: 'اسکن بعدی تا', next_scan_na: 'به‌زودی',
+      search_ph: 'جستجو در سرور… (مثال: 149.154)',
+      all: 'همه', offline: 'آفلاین', all_types: 'همه نوع‌ها', standard: 'معمولی',
+      refresh: 'بررسی مجدد',
+      port: 'پورت', source: 'منبع', connect: 'اتصال در تلگرام',
+      copy: 'کپی لینک', copied: 'کپی شد ✓',
+      no_response: 'بدون پاسخ', more: '۲۰ تای بعدی',
+      empty: 'موردی با این فیلتر پیدا نشد.',
+      counter: 'نمایش {a} تا {b} مورد',
+      just_now: 'همین حالا', min_ago: '{n} دقیقه پیش',
+      pct: '٪', locale: 'fa-IR',
+      type: { 'MTProto TLS': 'TLS', 'MTProto Secure': 'Secure', 'MTProto': 'معمولی' },
+      status: { Online: 'آنلاین', Offline: 'آفلاین' }
+    },
+    en: {
+      subtitle: 'Telegram MTProto proxies — live-checked, sorted by ping',
+      live: 'Live — monitoring',
+      online: 'Online', total: 'Total proxies', healthy: 'Healthy',
+      updated: 'Last check:',
+      fastest: 'Fastest proxy',
+      next_scan: 'Next scan in', next_scan_na: 'soon',
+      search_ph: 'Search server… (e.g. 149.154)',
+      all: 'All', offline: 'Offline', all_types: 'All types', standard: 'Standard',
+      refresh: 'Re-check',
+      port: 'Port', source: 'Source', connect: 'Connect in Telegram',
+      copy: 'Copy link', copied: 'Copied ✓',
+      no_response: 'No response', more: 'Next 20',
+      empty: 'No proxies match this filter.',
+      counter: 'Showing {a} of {b}',
+      just_now: 'just now', min_ago: '{n} min ago',
+      pct: '%', locale: 'en-US',
+      type: { 'MTProto TLS': 'TLS', 'MTProto Secure': 'Secure', 'MTProto': 'Standard' },
+      status: { Online: 'Online', Offline: 'Offline' }
+    },
+    ar: {
+      subtitle: 'بروكسيات MTProto لتيليجرام — فحص مباشر مرتبة حسب البينق',
+      live: 'مباشر — قيد المراقبة',
+      online: 'متصل', total: 'إجمالي البروكسيات', healthy: 'سليمة',
+      updated: 'آخر فحص:',
+      fastest: 'أسرع بروكسي',
+      next_scan: 'الفحص التالي خلال', next_scan_na: 'قريباً',
+      search_ph: 'ابحث في الخادم… (مثال: 149.154)',
+      all: 'الكل', offline: 'غير متصل', all_types: 'كل الأنواع', standard: 'عادي',
+      refresh: 'إعادة الفحص',
+      port: 'المنفذ', source: 'المصدر', connect: 'اتصال في تيليجرام',
+      copy: 'نسخ الرابط', copied: 'تم النسخ ✓',
+      no_response: 'بلا استجابة', more: 'التالي ٢٠',
+      empty: 'لا توجد نتائج مطابقة لهذا الفلتر.',
+      counter: 'عرض {a} من {b}',
+      just_now: 'الآن', min_ago: 'منذ {n} دقيقة',
+      pct: '٪', locale: 'ar-EG',
+      type: { 'MTProto TLS': 'TLS', 'MTProto Secure': 'Secure', 'MTProto': 'عادي' },
+      status: { Online: 'متصل', Offline: 'غير متصل' }
+    }
+  };
+
+  var lang = 'fa';
+  try { lang = localStorage.getItem('mtprotolive-lang') || 'fa'; } catch (e) {}
+  if (!I18N[lang]) lang = 'fa';
+  var t = I18N[lang];
+
+  var DIGITS = {
+    fa: '۰۱۲۳۴۵۶۷۸۹',
+    ar: '٠١٢٣٤٥٦٧٨٩',
+    en: '0123456789'
+  };
+  function formatNum(n) {
+    var d = DIGITS[lang] || DIGITS.en;
+    return String(n).replace(/\d/g, function (ch) { return d[+ch]; });
+  }
+
+  function applyLang() {
+    t = I18N[lang];
+    document.documentElement.setAttribute('lang', lang);
+    document.documentElement.setAttribute('dir', lang === 'en' ? 'ltr' : 'rtl');
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n');
+      if (t[k] !== undefined) el.textContent = t[k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n-ph');
+      if (t[k] !== undefined) el.setAttribute('placeholder', t[k]);
+    });
+    document.querySelectorAll('[data-num]').forEach(function (el) {
+      var n = parseInt(el.getAttribute('data-num'), 10);
+      el.textContent = formatNum(isNaN(n) ? 0 : n) + (el.hasAttribute('data-pct') ? t.pct : '');
+    });
+    document.querySelectorAll('.type-badge').forEach(function (el) {
+      el.textContent = (t.type && t.type[el.getAttribute('data-type')]) || el.getAttribute('data-type');
+    });
+    document.querySelectorAll('.status-txt').forEach(function (el) {
+      el.textContent = (t.status && t.status[el.getAttribute('data-status')]) || el.getAttribute('data-status');
+    });
+    document.querySelectorAll('#langSwitch button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-lang') === lang);
+    });
+    try { localStorage.setItem('mtprotolive-lang', lang); } catch (e) {}
+    tick();
+    render();
+  }
+
+  document.getElementById('langSwitch').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-lang]');
+    if (!b) return;
+    lang = b.getAttribute('data-lang');
+    applyLang();
+  });
+
+  /* ---------- Dark / light toggle (default: dark) ---------- */
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('mtprotolive-theme', next); } catch (e) {}
+  });
+
+  function fa(n) { return formatNum(n); }
+
+  function visible() {
+    var q = search.value.trim().toLowerCase();
+    return cards.filter(function (c) {
+      if (statusFilter !== 'all' && c.dataset.status !== statusFilter) return false;
+      if (typeFilter !== 'all' && c.dataset.type !== typeFilter) return false;
+      if (q && c.dataset.server.indexOf(q) === -1 && (c.dataset.country || '').indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  function render() {
+    var list = visible();
+    cards.forEach(function (c) { c.style.display = 'none'; });
+    list.slice(0, shown).forEach(function (c) { c.style.display = ''; });
+    empty.style.display = list.length ? 'none' : 'block';
+    counter.textContent = list.length
+      ? t.counter.replace('{a}', fa(Math.min(shown, list.length))).replace('{b}', fa(list.length))
+      : '';
+    moreBtn.style.display = list.length > shown ? '' : 'none';
+  }
+
+  moreBtn.addEventListener('click', function () { shown += PAGE; render(); });
+
+  function bindChips(id, setter) {
+    document.getElementById(id).addEventListener('click', function (e) {
+      var b = e.target.closest('.chip');
+      if (!b) return;
+      this.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      setter(b.dataset.status || b.dataset.type);
+      shown = PAGE;
+      render();
+    });
+  }
+  bindChips('statusChips', function (v) { statusFilter = v; });
+  bindChips('typeChips', function (v) { typeFilter = v; });
+  search.addEventListener('input', function () { shown = PAGE; render(); });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]');
+    if (!b) return;
+    var link = b.dataset.copy;
+    function done() { b.textContent = t.copied; setTimeout(function () { b.textContent = t.copy; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = link; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (err) {}
+      document.body.removeChild(ta);
+    }
+  });
+
+  // Last-scan relative time (Tehran)
+  var tsEl = document.getElementById('updated');
+  var ts = parseInt(tsEl.dataset.ts || '0', 10);
+  function tick() {
+    if (!ts) { tsEl.textContent = '—'; return; }
+    var mins = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60));
+    var clock = new Date(ts * 1000).toLocaleTimeString(t.locale, { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit' });
+    var ago = mins < 1 ? t.just_now : t.min_ago.replace('{n}', formatNum(mins));
+    tsEl.textContent = clock + ' (' + ago + ')';
+  }
+  tick();
+  setInterval(tick, 60000);
+
+  // Countdown to the next 15-minute scan + auto-reload when it arrives
+  var nextScanEl = document.getElementById('nextScan');
+  var SCAN_EVERY = 15 * 60;
+  var nextScanTs = 0;
+  if (ts) {
+    nextScanTs = ts + SCAN_EVERY;
+    var now0 = Math.floor(Date.now() / 1000);
+    while (nextScanTs <= now0) nextScanTs += SCAN_EVERY;
+  }
+  function tickScan() {
+    if (!ts || !nextScanTs) { nextScanEl.textContent = '—'; return; }
+    var remain = nextScanTs - Math.floor(Date.now() / 1000);
+    if (remain <= 0) {
+      nextScanEl.textContent = t.next_scan_na;
+      location.reload();
+      return;
+    }
+    var mm = Math.floor(remain / 60);
+    var ss = remain % 60;
+    nextScanEl.textContent = formatNum(mm) + ':' + formatNum(ss < 10 ? '0' + ss : ss);
+  }
+  tickScan();
+  setInterval(tickScan, 1000);
+
+  applyLang();
+})();
+</script>
+</body>
+</html>
