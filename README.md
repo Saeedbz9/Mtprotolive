@@ -2,7 +2,7 @@
 
 پایگاه پروکسی‌های MTProto تلگرام — با بررسی زنده و مرتب‌سازی بر اساس پینگ.
 
-🌐 **مشاهده سایت:** https://saeedbz9.github.io/Mtprotolive/
+🌐 **مشاهده سایت:** https://saeedbzdev.github.io/Mtprotolive/
 
 ## چی کار می‌کنه؟
 
